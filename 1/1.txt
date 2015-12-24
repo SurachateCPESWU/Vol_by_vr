@@ -1,0 +1,101 @@
+#include "stdafx.h"
+#include <windows.h>
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
+#include <strsafe.h>
+#include <Wscapi.h>
+
+void PrintCommState(DCB dcb)
+{
+	//  Print some of the DCB structure values
+	_tprintf(TEXT("\nBaudRate = %d, ByteSize = %d, Parity = %d, StopBits = %d\n"),
+		dcb.BaudRate,
+		dcb.ByteSize,
+		dcb.Parity,
+		dcb.StopBits);
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	float set_vol = 0;
+	DCB dcb;
+	HANDLE hCom;
+	BOOL fSuccess;
+	char output[5];
+	int isRead = false;
+	DWORD dwBytesRead;
+	const char* pcCommPort = "COM3";
+
+	hCom = CreateFile(pcCommPort,
+		GENERIC_READ | GENERIC_WRITE,
+		0,    // must be opened with exclusive-access
+		NULL, // no security attributes
+		OPEN_EXISTING, // must use OPEN_EXISTING
+		0,    // not overlapped I/O
+		NULL  // hTemplate must be NULL for comm devices
+		);
+
+	fSuccess = GetCommState(hCom, &dcb);
+	dcb.BaudRate = CBR_9600;     // set the baud rate
+	dcb.ByteSize = 8;             // data size, xmit, and rcv
+	dcb.Parity = NOPARITY;        // no parity bit
+	dcb.StopBits = ONESTOPBIT;    // one stop bit
+
+	fSuccess = SetCommState(hCom, &dcb);
+
+	if (fSuccess) printf("CONNECT = ");
+
+
+	PrintCommState(dcb);
+
+	HRESULT hr;
+	CoInitialize(NULL);
+	IMMDeviceEnumerator *deviceEnumerator = NULL;;
+	HANDLE      handle;
+
+	DWORD oldMode;
+	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &oldMode);
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), oldMode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT));
+
+	// 
+	//    Instantiate an endpoint volume object.
+	//
+	hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (LPVOID *)&deviceEnumerator);
+	IMMDevice *defaultDevice = NULL;
+
+	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
+	deviceEnumerator->Release();
+	deviceEnumerator = NULL;
+
+	IAudioEndpointVolume *endpointVolume = NULL;
+
+	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
+	defaultDevice->Release();
+	defaultDevice = NULL;
+
+
+	char inputChar = '\0';
+	int temp = 0;
+	while (inputChar != '\r')
+	{
+		output[0] = NULL;
+		output[1] = NULL;
+		output[2] = NULL;
+		output[3] = NULL;
+		output[4] = NULL;
+		isRead = ReadFile(hCom, output, sizeof(output), &dwBytesRead, NULL);
+		temp = atoi(output);
+		set_vol = (float)(temp)/(float)(1000);
+		
+		
+		
+		endpointVolume->SetMasterVolumeLevelScalar(set_vol, NULL);
+	}
+
+	endpointVolume->Release();
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), oldMode);
+
+	CoUninitialize();
+	return 0;
+
+}
