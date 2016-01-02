@@ -158,19 +158,53 @@ int _tmain(int argc, _TCHAR* argv[])
 	int temp = 0;
 	char to_int[3] ;
 	char type[5] ;
+	int to_do;
+	int j = 0;
 	while (inputChar != '\r')
 	{
 		for (int i = 0; i < 11;i++) output[i] = NULL;
+		for (int i = 0; i < 5; i++) type[i] = NULL;
+		to_do = 999;
 		isRead = ReadFile(hCom, output, sizeof(output), &dwBytesRead, NULL);
+
+		//######## แยกประเภท ########
 		for (int i = 0; i < 5; i++) type[i] = output[i];
-		if (strcmp(type, "s_vol") == 1){
-			int j = 0;
-			for (int i = 6; i < 10; i++) to_int[j++] = output[i];
-			temp = atoi(to_int);
-			printf("%d \n", temp);
-			set_vol = (float)(temp) / (float)(1000);
-			set_volume(defaultDevice, set_vol);
-		}
+	
+		if (strcmp(type, "s_vol") == 1)to_do = 0;
+		else if (strcmp(type, "s_tre") == 1)to_do = 2;
+		else if (strcmp(type, "s_bas") == 1)to_do = 1;
+		//###########################
+
+			switch (to_do)
+			{
+			case 0:
+				for (int i = 6; i < 10; i++) to_int[j++] = output[i];
+				j = 0;
+				temp = atoi(to_int);
+				printf("Volume = %d \n", temp);
+				set_vol = (float)(temp) / (float)(1000);
+				set_volume(defaultDevice, set_vol);
+				break;
+			case 1:
+				for (int i = 6; i < 10; i++) to_int[j++] = output[i];
+				j = 0;
+				temp = atoi(to_int);
+				printf("Bass = %d \n", temp);
+				if (temp>500)set_vol = (float)(temp - 500) / (float)(41.625);
+				else set_vol = (-1)*(12 - ((float)(temp) / (float)(41.625)));
+				set_bass(defaultDevice, set_vol);
+				break;
+			case 2:
+				for (int i = 6; i < 10; i++) to_int[j++] = output[i];
+				j = 0;
+				temp = atoi(to_int);
+				printf("tre = %d \n", temp);
+				if (temp>500)set_vol = (float)(temp - 500) / (float)(41.625);
+				else set_vol = (-1)*(12 - ((float)(temp) / (float)(41.625)));
+				set_tre(defaultDevice, set_vol);
+				break;
+			default:break;
+			}
 	}
 
 	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), oldMode);
